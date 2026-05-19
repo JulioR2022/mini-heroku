@@ -11,7 +11,7 @@ ACCESS_TOKEN_EXPIRE =   300
 
 
 pwd = CryptContext(schemes=['bcrypt'], deprecated='auto')
-oaut2_scheme = OAuth2PasswordBearer(tokenUrl='login')
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl='login')
 
 def create_access_token(data:dict):
     encode_ = data.copy()
@@ -31,7 +31,7 @@ def get_hash_password(password:str):
 def verify_password(password:str, hash_password):
     return pwd.verify(password, hash_password)
 
-def get_current_user(token= Depends(oaut2_scheme)):
+def get_current_user(token= Depends(oauth2_scheme)):
     try:
         payload = jwt.decode(
             token,
@@ -53,6 +53,6 @@ def get_current_user(token= Depends(oaut2_scheme)):
         )
     except jwt.InvalidTokenError:
         raise HTTPException(
-            status_code= 301,
+            status_code= 401,
             detail= "Credenciais inválidas"
         )
