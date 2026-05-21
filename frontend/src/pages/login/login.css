@@ -1,0 +1,32 @@
+.login-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    min-height: 100vh;
+    background-color: #0b0e0d;
+    font-family: 'Inter', sans-serif;
+}
+.login-card {
+    background: white;
+    max-width: 400px;
+    width: 100%;
+    padding: 32px;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    text-align: center;
+}
+.login-title {
+    margin-bottom: 24px;
+    color: #222;
+}
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+.error-message {
+    color: #dc3545;
+    font-size: 0.9rem;
+    margin-top: -5px;
+}

@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException,BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -11,79 +12,21 @@ from schemas import schemas_project
 from schemas import schemas_user
 from schemas import schemas_deployment
 from auth import get_current_user, get_hash_password, create_access_token, verify_password
+from docker_service import deploy_container, remove_container
 
-def deploy_container(project_id:int):
-    db = local_session()
-    temp_dir = None
-    try:
-        project = db.query(Project).filter(Project.id == project_id).first()
-
-        project.status = 'deploying'
-        deploy = Deployment(
-            project_id= project.id,
-            status= 'building'
-        )
-        db.add(deploy)
-        db.commit()
-
-        client = docker.from_env()
-        temp_dir = tempfile.mkdtemp()
-        git.Repo.clone_from(project.repo_url, temp_dir)
-        image_tag = f'{project.name.lower()}_img'
-        build_path = temp_dir
-        if project.root_dir is not None:
-            build_path = os.path.join(temp_dir, project.root_dir.lstrip('/'))
-        client.images.build(path=build_path, tag=image_tag)
-        try:
-            old = client.containers.get(project.name)
-            old.remove(force= True)
-        except docker.errors.NotFound:
-            pass
-        
-        environment_vars = {'PORT': '8000'}
-        if project.env_vars:
-            environment_vars.update(project.env_vars)
-
-        container = None
-        try:
-            container = client.containers.run(
-                image_tag,
-                detach=True,
-                name= project.name,
-                ports= {'8000/tcp': None},
-                environment=environment_vars
-            )
-        except docker.errors.APIError as e:
-            raise Exception(f'Erro ao iniciar container: {e}')
-
-        container.reload()
-        ports_ = container.attrs['NetworkSettings']['Ports']
-        if ports_ and '8000/tcp' in ports_ and ports_['8000/tcp']:
-            project.port = int(ports_['8000/tcp'][0]['HostPort'])
-
-        project.status = 'running'
-        deploy.status = 'success'
-        db.commit()
-    except Exception as e:
-        print(f'Erro no deploy do projeto {project_id}: {e}')
-        db.rollback()
-        if 'project' in locals() and project:
-            project.status = 'failed'
-        if 'deploy' in locals() and deploy:
-            deploy.status = 'failed'
-        db.commit()
-    finally:
-        if temp_dir:
-            try:
-                shutil.rmtree(temp_dir)
-            except Exception as e:
-                print(f'Erro: {e}')
-        db.close()
 
 # Cria as tabelas
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title='mini heroku API')
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get('/')
 def read_root():
@@ -196,19 +139,12 @@ def stop_project(project_id:int,
         raise HTTPException(status_code=404, detail="Projeto não encontrado")
     
     try:
-        client = docker.from_env()
-        try:
-            container = client.containers.get(project.name)
-            container.stop()
-            container.remove(force=True)
-        except docker.errors.NotFound:
-            pass
-        
+        message = remove_container(project.name)
         project.status = 'stopped'
         db.commit()
-        return {"message": "Container parado e removido com sucesso.", "status": "stopped"}
+        return message
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao parar o container: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get('/projects/{project_id}/deployments', response_model=list[schemas_deployment.DeploymentResponse])

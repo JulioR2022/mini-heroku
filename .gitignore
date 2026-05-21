@@ -15,3 +15,5 @@ env/
 .idea/
 *.swp
 .DS_Store
+
+node_modules

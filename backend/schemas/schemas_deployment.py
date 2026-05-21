@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional
 
 class DeploymentBase(BaseModel):
+    project_id:int
     status:str
     
 class DeploymentRequest(DeploymentBase):
@@ -10,7 +11,6 @@ class DeploymentRequest(DeploymentBase):
 
 class DeploymentResponse(DeploymentBase):
     id: int
-    project_id: int
     created_at: datetime
     
     class Config:

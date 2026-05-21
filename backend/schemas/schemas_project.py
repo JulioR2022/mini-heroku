@@ -6,15 +6,14 @@ class ProjectBase(BaseModel):
     name: str
     repo_url: Optional[str] = None
     root_dir: Optional[str] = None
-    env_vars: Optional[Dict[str, str]] = None
     
 
 class ProjectRequest(ProjectBase):
-    pass
+    env_vars: Optional[Dict[str, str]] = None
 
 class ProjectResponse(ProjectBase):
     id: int
-    port: Optional[int] = None
+    port: int = None
     status:str
     created_at:datetime
 
