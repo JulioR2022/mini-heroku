@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { Input } from '../../components/Input/Input';
 import { Button } from '../../components/Button/Button';
 import { useToast } from '../../contexts/ToastContext';
-import './register.css'
+import './Register.css'
 
 export default function RegisterPage(){
     const [username, setUsername] = useState('');

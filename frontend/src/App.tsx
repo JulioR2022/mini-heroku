@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { LoginPage } from './pages/login/login';
-import RegisterPage from './pages/register/register';
+import { LoginPage } from './pages/login/Login';
+import RegisterPage from './pages/register/Register';
 import { ToastProvider } from './contexts/ToastContext';
 
 export default function App() {
@@ -8,7 +8,7 @@ export default function App() {
     <ToastProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Navigate to="/register" replace />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
         </Routes>

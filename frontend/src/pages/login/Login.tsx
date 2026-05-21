@@ -4,7 +4,7 @@ import { Input } from '../../components/Input/Input';
 import { Button } from '../../components/Button/Button';
 import axios from 'axios';
 import { useToast } from '../../contexts/ToastContext';
-import './login.css';
+import './Login.css';
 
 export function LoginPage(){
     const [username, setUsername] = useState('');
