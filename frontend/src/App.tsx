@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from './pages/login/Login';
 import RegisterPage from './pages/register/Register';
+import {Dashboard} from './pages/dashboard/Dashboard';
 import { ToastProvider } from './contexts/ToastContext';
 
 export default function App() {
