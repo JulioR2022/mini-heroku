@@ -3,15 +3,14 @@ from datetime import datetime
 from typing import Optional
 
 class DeploymentBase(BaseModel):
-    project_id:int
-    status:str
+    service_id:int
     
 class DeploymentRequest(DeploymentBase):
     pass
 
 class DeploymentResponse(DeploymentBase):
     id: int
-    created_at: datetime
-    
+    status: Optional[str] = None
+    created_at: datetime 
     class Config:
         from_attributes = True

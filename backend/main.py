@@ -8,7 +8,8 @@ from database import engine, Base, get_db, local_session
 from models.deployment import Deployment
 from models.project import Project
 from models.user import User
-from schemas import schemas_project
+from models.service import Service
+from schemas import schemas_project, schemas_service
 from schemas import schemas_user
 from schemas import schemas_deployment
 from auth import get_current_user, get_hash_password, create_access_token, verify_password
@@ -42,6 +43,20 @@ def get_user(user_id:int = Depends(get_current_user), db:Session = Depends(get_d
         )
     return user_
 
+@app.post('/register', response_model= schemas_user.UserResponse)
+def register_user(user:schemas_user.UserRequest ,db:Session = Depends(get_db)):
+    user_ = db.query(User).filter(User.name == user.name).first()
+    if user_:
+        raise HTTPException(
+            status_code= 400,
+            detail= 'Usuário já existente'
+        )
+    hash_pwd = get_hash_password(user.password)
+    user_ = User(name=user.name, password= hash_pwd)
+    db.add(user_)
+    db.commit()
+    db.refresh(user_)
+    return user_
 
 @app.post('/login')
 def login(
@@ -65,22 +80,10 @@ def login(
     token = create_access_token(data=data)
     return {'access_token':token, 'token_type':'bearer'}
 
-
-@app.post('/register', response_model= schemas_user.UserResponse)
-def register_user(user:schemas_user.UserRequest ,db:Session = Depends(get_db)):
-    user_ = db.query(User).filter(User.name == user.name).first()
-    if user_:
-        raise HTTPException(
-            status_code= 400,
-            detail= 'Usuário já existente'
-        )
-    hash_pwd = get_hash_password(user.password)
-    user_ = User(name=user.name, password= hash_pwd)
-    db.add(user_)
-    db.commit()
-    db.refresh(user_)
-    return user_
-
+@app.get('/projects', response_model= list[schemas_project.ProjectResponse])
+def get_projects(user_id:int = Depends(get_current_user),db:Session = Depends(get_db)):
+    projects = db.query(Project).filter(Project.user_id == user_id).all()
+    return projects
 
 @app.post('/projects', response_model= schemas_project.ProjectResponse)
 def create_projects(project: schemas_project.ProjectRequest, 
@@ -95,11 +98,7 @@ def create_projects(project: schemas_project.ProjectRequest,
         )
     new_project = Project(
         name= project.name,
-        user_id= user_id,
-        repo_url = project.repo_url,
-        root_dir= project.root_dir,
-        port= None,
-        env_vars= project.env_vars,
+        user_id= user_id
     )
     db.add(new_project)
     try:
@@ -114,53 +113,98 @@ def create_projects(project: schemas_project.ProjectRequest,
     
     return new_project
 
-@app.post('/projects/{project_id}/deploy')
-def trigger_deploy(project_id:int,
+@app.get('/service/{project_id}', response_model= list[schemas_service.ServiceResponse])
+def get_service(project_id:int,
+                user_id:int = Depends(get_current_user),
+                db:Session = Depends(get_db)):
+    services = db.query(Service).join(Project).filter(
+        Service.project_id == project_id,
+        Project.user_id == user_id
+    ).all()
+    return services
+
+@app.post('/service', response_model= schemas_service.ServiceResponse)
+def create_service(service: schemas_service.ServiceRequest, 
+                    user_id:int = Depends(get_current_user),
+                    db:Session = Depends(get_db)):
+    
+    project = db.query(Project).filter(Project.id == service.project_id, Project.user_id == user_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+
+    db_service = db.query(Service).filter(Service.name == service.name).first()
+
+    if db_service:
+        raise HTTPException(
+            status_code= 400,
+            detail= 'Nome ja utilizado.'
+        )
+    new_service = Service(
+        name= service.name,
+        project_id= service.project_id,
+        repo_url = service.repo_url,
+        root_dir= service.root_dir,
+        port= None,
+        env_vars= service.env_vars,
+    )
+    db.add(new_service)
+    try:
+        db.commit()
+        db.refresh(new_service)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code= 400,
+            detail= 'Erro de integridade: Este nome de serviço já está em uso.'
+        )
+    
+    return new_service
+
+@app.post('/service/deploy')
+def trigger_deploy(service_id:int,
                    background_tasks: BackgroundTasks,
                    user_id:int = Depends(get_current_user),
                    db:Session = Depends(get_db)):
-    project = db.query(Project).filter(Project.id == project_id, Project.user_id == user_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    service = db.query(Service).join(Project).filter(
+        Service.id == service_id,
+        Project.user_id == user_id
+    ).first()
+    if not service:
+        raise HTTPException(status_code=404, detail="Serviço não encontrado")
     
-    background_tasks.add_task(deploy_container, project.id)
+    background_tasks.add_task(deploy_container, service.id)
     
     return {"message": "Deploy iniciado em segundo plano.", "status": "deploying"}
 
-@app.post('/projects/{project_id}/stop')
-def stop_project(project_id:int,
+@app.post('/service/stop')
+def stop_service(service_id:int,
                  user_id:int = Depends(get_current_user),
                  db:Session = Depends(get_db)):
-    project = db.query(Project).filter(
-        Project.id == project_id, 
+    service = db.query(Service).join(Project).filter(
+        Service.id == service_id,
         Project.user_id == user_id
     ).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    if not service:
+        raise HTTPException(status_code=404, detail="Serviço não encontrado")
     
     try:
-        message = remove_container(project.name)
-        project.status = 'stopped'
+        message = remove_container(service.name)
+        service.status = 'stopped'
         db.commit()
         return message
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get('/projects/{project_id}/deployments', response_model=list[schemas_deployment.DeploymentResponse])
-def get_deploy(project_id:int,
+@app.get('/service/deployments', response_model=list[schemas_deployment.DeploymentResponse])
+def get_deployments(service_id:int,
                user_id:int = Depends(get_current_user),
                db:Session = Depends(get_db)):
-    project = db.query(Project).filter(
+    service = db.query(Service).join(Project).filter(
         Project.user_id == user_id,
-        Project.id == project_id
+        Service.id == service_id
     ).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    if not service:
+        raise HTTPException(status_code=404, detail="Serviço não encontrado")
     
-    return project.deployments
-
-@app.get('/projects', response_model= list[schemas_project.ProjectResponse])
-def get_projects(user_id:int = Depends(get_current_user),db:Session = Depends(get_db)):
-    projects = db.query(Project).filter(Project.user_id == user_id).all()
-    return projects
+    return service.deployments

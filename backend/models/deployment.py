@@ -6,10 +6,10 @@ from database import Base
 class Deployment(Base):
     __tablename__ = 'deployments'
     id = Column(Integer, primary_key= True, index= True)
-    project_id = Column(Integer, ForeignKey('projects.id'))
+    service_id = Column(Integer, ForeignKey('service.id'))
     status = Column(String, default='builds')
     created_at = Column(
         DateTime,
         default= lambda: datetime.now(timezone.utc)
     )
-    project = relationship("Project", back_populates="deployments")
+    service = relationship('Service', back_populates='deployments')

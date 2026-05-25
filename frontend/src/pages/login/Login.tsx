@@ -2,15 +2,18 @@ import {login} from '../../services/auth'
 import{ useState, type FormEvent } from 'react'; 
 import { Input } from '../../components/Input/Input';
 import { Button } from '../../components/Button/Button';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useToast } from '../../contexts/ToastContext';
 import './Login.css';
+import { useNavigate } from 'react-router-dom';
 
 export function LoginPage(){
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const {showToast} = useToast();
+    const navigate = useNavigate();
 
     const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -24,6 +27,7 @@ export function LoginPage(){
             if(response.access_token) {
                 localStorage.setItem('token', response.access_token);
                 showToast('Login Feito com sucesso!', 'success');
+                navigate('/dashboard');
             }
 
         } catch(err: unknown){
@@ -50,10 +54,13 @@ export function LoginPage(){
                     label="Senha" type="password" placeholder="Digite sua senha" value={password} 
                     onChange={(e) => setPassword(e.target.value)} required 
                 />
-                    <Button type="submit" disabled={loading}>
-                        {loading ? 'Entrando...' : 'Entrar'}
-                    </Button>
+                <Button type="submit" disabled={loading}>
+                    {loading ? 'Entrando...' : 'Entrar'}
+                </Button>
                 </form>
+                <Link to={'/register'} className='create-count' >
+                 Registre-se
+                 </Link>
             </div>
         </div>
     )

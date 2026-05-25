@@ -7,7 +7,7 @@ export interface DeploymentRequest {
 
 }
 
-export interface DeploymentResponse {
+export interface DeploymentResponse extends DeploymentBase {
     id:number;
     created_at:string;
 }
