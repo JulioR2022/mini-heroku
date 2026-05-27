@@ -2,6 +2,7 @@ export interface ServiceBase{
     name:string;
     repo_url?:string;
     root_dir?:string;
+    project_id:Number;
 };
 
 export interface ServiceRequest extends ServiceBase{

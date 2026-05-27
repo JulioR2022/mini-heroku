@@ -6,14 +6,14 @@ class ServiceBase(BaseModel):
     name: str
     repo_url: Optional[str] = None
     root_dir: Optional[str] = None
+    project_id: int
 
 class ServiceRequest(ServiceBase):
     env_vars: Optional[Dict[str, str]] = None
-    project_id: int
+    
 
 class ServiceResponse(ServiceBase):
     id: int
-    project_id: int
     port: Optional[int] = None
     status: str
     created_at: datetime
