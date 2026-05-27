@@ -46,17 +46,17 @@ export function LoginPage(){
             <div className="login-card">
                 <h2 className="login-title"> Entrar no mini-heroku </h2>
                 <form onSubmit= {handleLogin} className="login-form">
-                <Input 
-                    label="Usuário" type="text" placeholder="Digite seu usuário" value={username} 
-                    onChange={(e) => setUsername(e.target.value)} required 
-                />
-                <Input 
-                    label="Senha" type="password" placeholder="Digite sua senha" value={password} 
-                    onChange={(e) => setPassword(e.target.value)} required 
-                />
-                <Button type="submit" disabled={loading}>
-                    {loading ? 'Entrando...' : 'Entrar'}
-                </Button>
+                    <Input 
+                        label="Usuário" type="text" placeholder="Digite seu usuário" value={username} 
+                        onChange={(e) => setUsername(e.target.value)} required 
+                    />
+                    <Input 
+                        label="Senha" type="password" placeholder="Digite sua senha" value={password} 
+                        onChange={(e) => setPassword(e.target.value)} required 
+                    />
+                    <Button type="submit" disabled={loading}>
+                        {loading ? 'Entrando...' : 'Entrar'}
+                    </Button>
                 </form>
                 <Link to={'/register'} className='create-count' >
                  Registre-se

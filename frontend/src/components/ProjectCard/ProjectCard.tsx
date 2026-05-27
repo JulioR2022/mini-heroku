@@ -14,7 +14,7 @@ export function ProjectCard({project, ...props}: ProjectCardProps) {
         <button 
             key={project.id} 
             className="project-card"
-            onClick={() => navigate(`/projects/${project.name}`)}
+            onClick={() => navigate(`./${project.id}`)}
             {...props}
         >
             <div className="project-info">
@@ -24,7 +24,7 @@ export function ProjectCard({project, ...props}: ProjectCardProps) {
                 </span>
             </div>
             <div className="project-card-footer">
-                <span className="open-text">Ver detalhes ➔</span>
+                <span className="open-text">Ver detalhes</span>
             </div>
         </button>
     )

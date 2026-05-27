@@ -80,6 +80,22 @@ def login(
     token = create_access_token(data=data)
     return {'access_token':token, 'token_type':'bearer'}
 
+@app.get("/project/{project_id}", response_model=schemas_project.ProjectResponse)
+def get_project(project_id:int,
+                user_id:int = Depends(get_current_user),
+                db:Session = Depends(get_db)):
+    project = db.query(Project).filter(
+        Project.user_id == user_id,
+        Project.id == project_id
+    ).first()
+    if not project:
+        raise HTTPException(
+            status_code=404,
+            detail= "Projeto não encontrado."
+        )
+    
+    return project
+
 @app.get('/projects', response_model= list[schemas_project.ProjectResponse])
 def get_projects(user_id:int = Depends(get_current_user),db:Session = Depends(get_db)):
     projects = db.query(Project).filter(Project.user_id == user_id).all()
