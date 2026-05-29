@@ -96,8 +96,8 @@ def get_project(project_id:int,
     
     return project
 
-@app.get('/projects', response_model= list[schemas_project.ProjectResponse])
-def get_projects(user_id:int = Depends(get_current_user),db:Session = Depends(get_db)):
+@app.get('/user/projects', response_model= list[schemas_project.ProjectResponse])
+def get_all_user_projects(user_id:int = Depends(get_current_user),db:Session = Depends(get_db)):
     projects = db.query(Project).filter(Project.user_id == user_id).all()
     return projects
 
@@ -129,8 +129,8 @@ def create_projects(project: schemas_project.ProjectRequest,
     
     return new_project
 
-@app.get('/service/{project_id}', response_model= list[schemas_service.ServiceResponse])
-def get_service(project_id:int,
+@app.get('/project/{project_id}/services', response_model= list[schemas_service.ServiceResponse])
+def get_all_project_services(project_id:int,
                 user_id:int = Depends(get_current_user),
                 db:Session = Depends(get_db)):
     services = db.query(Service).join(Project).filter(
@@ -138,6 +138,18 @@ def get_service(project_id:int,
         Project.user_id == user_id
     ).all()
     return services
+
+@app.get('/service/{service_id}', response_model=schemas_service.ServiceResponse)
+def get_service(service_id:int,
+                user_id: int = Depends(get_current_user),
+                db:Session= Depends(get_db)):
+    service = db.query(Service).join(Project).filter(
+        Project.user_id == user_id,
+        Service.id == service_id
+    ).first()
+        
+    return service
+
 
 @app.post('/service', response_model= schemas_service.ServiceResponse)
 def create_service(service: schemas_service.ServiceRequest, 

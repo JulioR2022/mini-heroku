@@ -10,6 +10,12 @@ api.interceptors.request.use((config) => {
         config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
-},(error) => {
+});
+
+api.interceptors.response.use((response) => response, (error) => {
+    if(error?.response?.status == 401){
+        localStorage.removeItem('token');
+        window.dispatchEvent(new Event('auth:unauthorized'));
+    }
     return Promise.reject(error);
 });

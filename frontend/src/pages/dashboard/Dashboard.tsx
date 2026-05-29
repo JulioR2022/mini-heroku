@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useToast } from '../../contexts/ToastContext';
 import type { ProjectResponse, ProjectRequest } from '../../types/project';
-import { createProject, get_projects } from '../../services/utils';
+import { createProject, get_all_user_projects } from '../../services/utils';
 import { ProjectCard } from '../../components/ProjectCard/ProjectCard';
 import './Dashboard.css';
 import Modal from '../../components/Modal/Modal';
 import { Input } from '../../components/Input/Input';
 import { Button } from '../../components/Button/Button';
+import { Header } from '../../components/Header/Header';
 
 export default function Dashboard(){
     const [loading, setLoading] = useState(true);
@@ -30,12 +31,12 @@ export default function Dashboard(){
             return;
         }
         try{
-            const response = await get_projects();
+            const response = await get_all_user_projects();
             setProjects(response);
         } catch (err: unknown) {
             if(axios.isAxiosError(err)){
                 showToast(err.response?.data?.detail,'error');
-                localStorage.removeItem('token');
+                
             }
             else {
                 showToast('Ocorreu algo inesperado.','error');
@@ -88,17 +89,7 @@ export default function Dashboard(){
 
     return (
         <div className='dashboard-layout'>
-            <nav className='dashboard-nav'>
-                <div className='nav-brand'>
-                    <span className='brand-logo'>☁️</span>
-                    mini-heroku
-                </div>
-                <div className="nav-actions">
-                    <button onClick={handleLogout} className="btn-logout">
-                        Sair
-                    </button>
-                </div>
-            </nav>
+            <Header isLogout={true}/>
             <main className="dashboard-content">
                 <header className="content-header">
                     <div className="header-info">
