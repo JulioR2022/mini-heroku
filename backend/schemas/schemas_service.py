@@ -11,7 +11,6 @@ class ServiceBase(BaseModel):
 class ServiceRequest(ServiceBase):
     env_vars: Optional[Dict[str, str]] = None
     
-
 class ServiceResponse(ServiceBase):
     id: int
     port: Optional[int] = None
@@ -20,4 +19,9 @@ class ServiceResponse(ServiceBase):
 
     class Config:
         from_attributes = True
-    
+
+class ServiceUpdate(BaseModel):
+    name:Optional[str] = None
+    repo_url: Optional[str] = None
+    root_dir: Optional[str] = None
+    env_vars: Optional[Dict[str, str]] = None

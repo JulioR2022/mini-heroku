@@ -15,12 +15,15 @@
 .modal-content {
     background-color: #ffffff;
     padding: 32px;
-    border-radius: 12px;
-    width: 90%; 
+    border-radius: 12px; 
     max-width: 650px; 
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
     animation: modalFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+.modal-sm { max-width: 80%; }
+.modal-md { width: 90%; } 
+.modal-lg { max-width: 900px; }
 
 .modal-content h2 {
     margin-top: 0;

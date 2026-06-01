@@ -1,7 +1,7 @@
 import React, {useState, useEffect} from 'react'
-import { type ServiceRequest, type ServiceResponse } from '../../types/services';
+import { type EnvVar, type ServiceRequest, type ServiceResponse } from '../../types/services';
 import { useNavigate, useParams } from 'react-router-dom';
-import { createService, get_project, get_all_project_services } from '../../services/utils';
+import { createService, getProject, get_all_project_services } from '../../services/utils';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '../../components/Button/Button';
 import { Input } from '../../components/Input/Input';
@@ -23,9 +23,9 @@ export default function ProjectPage(){
     const [newServiceName, setNewServiceName] = useState('');
     const [repoUrl, setRepoUrl] = useState('');
     const [rootDir, setRootDir] = useState('');
-    const [envVars, setEnvVars] = useState<{key: string, value:string}[]>([]);
+    const [envVars, setEnvVars] = useState<EnvVar[]>([]);
     const [isAdding, setIsAdding] = useState(false);
-    const [draftEnvVar, setDraftEnvVar] = useState<{key:string, value:string}>({key:'', value:''});
+    const [draftEnvVar, setDraftEnvVar] = useState<EnvVar>({key:'', value:''});
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
 
@@ -42,7 +42,7 @@ export default function ProjectPage(){
         try{
             const [servicesResponse, projectResponse] = await Promise.all([
                 get_all_project_services(Number(projectId)),
-                get_project(Number(projectId))
+                getProject(Number(projectId))
             ]);
             setServices(servicesResponse);
             setProjectName(projectResponse.name);

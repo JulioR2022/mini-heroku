@@ -1,6 +1,6 @@
 import {api} from './api';
 import { type ProjectRequest, type ProjectResponse } from '../types/project';
-import type { ServiceResponse, ServiceRequest } from '../types/services';
+import type { ServiceResponse, ServiceRequest, EnvVar, ServiceUpdate } from '../types/services';
 
 export const get_all_user_projects = async(): Promise<ProjectResponse[]> => {
     const response = await api.get('/user/projects');
@@ -12,7 +12,7 @@ export const get_all_project_services = async(projectId:number): Promise<Service
     return response.data;
 }
 
-export const get_project = async (projectId:number): Promise<ProjectResponse> =>{
+export const getProject = async (projectId:number): Promise<ProjectResponse> =>{
     const response = await api.get(`/project/${projectId}`);
     return response.data;
 }
@@ -25,7 +25,30 @@ export const createService = async (service: ServiceRequest) => {
     await api.post('/service',service);
 };
 
-export const get_service = async(serviceId: number): Promise<ServiceResponse> => {
+export const getService = async(serviceId: number): Promise<ServiceResponse> => {
     const response = await api.get(`/service/${serviceId}`);
     return response.data;
+};
+
+export const deleteService = async(serviceId:number) => {
+    await api.delete(`/service/${serviceId}`);
+};
+
+export const getServiceEnv = async(serviceId: number): Promise<EnvVar[]> => {
+    const response = await api.get(`/service/${serviceId}/env`);
+    const envArray: EnvVar[] = Object.entries(response.data).map(
+        ([key,value]) => ({
+            key: String(key), 
+            value:String(value)
+    }));
+    return envArray;
+};
+
+export const updateService = async(serviceId:number,update:ServiceUpdate):Promise<ServiceResponse> => {
+    const response = await api.patch(`/service/${serviceId}`, update);
+    return response.data;
+};
+
+export const triggerDeploy = async(serviceId:number) =>{
+    await api.post(`/service/${serviceId}/deploy`);
 };

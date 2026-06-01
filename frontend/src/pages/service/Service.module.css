@@ -88,6 +88,35 @@
     margin-bottom: 1.25rem;
 }
 
+/* Edição de Detalhes */
+.edit-button {
+    background-color: transparent;
+    border: none;
+    padding: 0;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    transition: transform 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+
+.edit-button:hover {
+    transform: scale(1.1);
+    color: #0f172a;
+}
+
+.edit-input-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    width: 100%;
+}
+
+.input-container {
+    flex: 1;
+    min-width: 0;
+}
+
 /* Detalhes do Serviço (Lista) */
 .info-list {
     display: flex;
@@ -112,6 +141,11 @@
 .info-value {
     font-size: 1rem;
     color: #0f172a;
+    overflow-wrap: anywhere;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
 }
 
 .info-link {
@@ -142,6 +176,13 @@
     margin-top: 1rem;
     padding-top: 1rem;
     border-top: 1px dashed #e2e8f0;
+}
+
+.env-error-msg {
+    color: #dc2626;
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+    margin-bottom: 0;
 }
 
 /* Logs / Terminal */

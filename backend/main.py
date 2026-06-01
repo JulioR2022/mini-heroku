@@ -150,6 +150,17 @@ def get_service(service_id:int,
         
     return service
 
+@app.get('/service/{service_id}/env')
+def get_service_env(service_id:int,
+                user_id: int = Depends(get_current_user),
+                db:Session= Depends(get_db)):
+    service = db.query(Service).join(Project).filter(
+        Project.user_id == user_id,
+        Service.id == service_id
+    ).first()
+    if not service:
+        raise HTTPException(status_code=404, detail="Serviço não encontrado")
+    return service.env_vars
 
 @app.post('/service', response_model= schemas_service.ServiceResponse)
 def create_service(service: schemas_service.ServiceRequest, 
@@ -188,7 +199,57 @@ def create_service(service: schemas_service.ServiceRequest,
     
     return new_service
 
-@app.post('/service/deploy')
+@app.patch('/service/{service_id}', response_model = schemas_service.ServiceResponse)
+def update_service(service_id:int,
+                   update:schemas_service.ServiceUpdate,
+                   user_id:int =Depends(get_current_user),
+                   db:Session = Depends(get_db)):
+    service = db.query(Service).join(Project).filter(
+        Project.user_id == user_id,
+        Service.id == service_id
+    ).first()
+    
+    if not service:
+        raise HTTPException(
+            status_code=404,
+            detail='Serviço não encontrado'
+        )
+
+    update_ = update.model_dump(exclude_unset=True)
+    for key,value in update_.items():
+        setattr(service, key, value)
+
+    try:
+        db.commit()
+        db.refresh(service)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code = 400,
+            detail='Erro de integridade ao atualizar serviço'
+        )
+    
+    return service
+
+@app.delete('/service/{service_id}')
+def delete_service(service_id:int,
+                   user_id:int = Depends(get_current_user),
+                   db:Session = Depends(get_db)):
+    service = db.query(Service).join(Project).filter(
+        Project.user_id == user_id,
+        Service.id == service_id
+    ).first()
+
+    if not service:
+        raise HTTPException(
+            status_code=404,
+            detail='Service Not Found'
+        )
+    
+    db.delete(service)
+    db.commit()
+    
+@app.post('/service/{service_id}/deploy')
 def trigger_deploy(service_id:int,
                    background_tasks: BackgroundTasks,
                    user_id:int = Depends(get_current_user),
@@ -201,10 +262,8 @@ def trigger_deploy(service_id:int,
         raise HTTPException(status_code=404, detail="Serviço não encontrado")
     
     background_tasks.add_task(deploy_container, service.id)
-    
-    return {"message": "Deploy iniciado em segundo plano.", "status": "deploying"}
 
-@app.post('/service/stop')
+@app.post('/service/{service_id}/stop')
 def stop_service(service_id:int,
                  user_id:int = Depends(get_current_user),
                  db:Session = Depends(get_db)):
