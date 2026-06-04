@@ -44,14 +44,20 @@ def deploy_container(service_id:int):
         build_path = temp_dir
         if service.root_dir is not None:
             build_path = os.path.join(temp_dir, service.root_dir.lstrip('/'))
-        client.images.build(path=build_path, tag=image_tag)
+
+        image,build_logs = client.images.build(path=build_path, tag=image_tag)
         try:
             old = client.containers.get(service.name)
             old.remove(force= True)
         except docker.errors.NotFound:
             pass
         
-        environment_vars = {'PORT': '8000'}
+        exposed_ports = image.attrs.get('Config',{}).get('ExposedPorts')
+        if exposed_ports:
+            container_port = list(exposed_ports.keys())[0]
+        container_port_num = container_port.split('/')[0]
+
+        environment_vars = {'PORT':container_port_num}
         if service.env_vars:
             environment_vars.update(service.env_vars)
 
@@ -61,7 +67,7 @@ def deploy_container(service_id:int):
                 image_tag,
                 detach=True,
                 name= service.name,
-                ports= {'8000/tcp': None},
+                ports= {container_port: None},
                 environment=environment_vars
             )
         except docker.errors.APIError as e:
@@ -69,8 +75,8 @@ def deploy_container(service_id:int):
 
         container.reload()
         ports_ = container.attrs['NetworkSettings']['Ports']
-        if ports_ and '8000/tcp' in ports_ and ports_['8000/tcp']:
-            service.port = int(ports_['8000/tcp'][0]['HostPort'])
+        if ports_ and container_port in ports_ and ports_[container_port]:
+            service.port = int(ports_[container_port][0]['HostPort'])
 
         service.status = 'running'
         deploy.status = 'success'

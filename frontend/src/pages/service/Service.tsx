@@ -6,7 +6,7 @@ import { Header } from '../../components/Header/Header';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../contexts/ToastContext';
-import { deleteService, getService, getServiceEnv, updateService } from '../../services/utils';
+import { deleteService, getService, getServiceEnv, triggerDeploy, updateService } from '../../services/utils';
 import { useState } from 'react';
 import type { EnvVar, ServiceResponse, ServiceUpdate } from '../../types/services';
 import axios, { isAxiosError } from 'axios';
@@ -183,6 +183,18 @@ export default function ServicePage() {
         }
     };
 
+    const handleDeploy = async() => {
+        try {
+            await triggerDeploy(Number(serviceId));
+        } catch (err:unknown) {
+            if(isAxiosError(err)){
+                showToast(err?.response?.data.detail,'error');
+            } else {
+                showToast('Erro Inesperado.','error');
+            }
+        }
+    };
+
     return (
         <div className={styles['service-page']}>
             <Header isLogout={false}/>
@@ -236,7 +248,12 @@ export default function ServicePage() {
                         >
                             Reiniciar
                         </Button>
-                        <Button variant="primary">Deploy Manual</Button>
+                        <Button 
+                            variant="primary"
+                            onClick={handleDeploy}    
+                        >
+                            Deploy Manual
+                        </Button>
                     </div>
                 </header>
 
@@ -345,7 +362,7 @@ export default function ServicePage() {
                                 <div className={styles['info-item']}>
                                     <span className={styles['info-label']}>URL Pública</span>
                                         {service?.port ? 
-                                            <a href="#" className={styles['info-link']}>{`https://localhost:${service?.port}`}</a>
+                                            <a href={`http://localhost:${service?.port}`} target="_blank" rel="noreferrer" className={styles['info-link']}>{`http://localhost:${service?.port}`}</a>
                                         
                                         : <a> Waiting for Deploy</a>
                                         }
