@@ -1,6 +1,6 @@
 export interface DeploymentBase{
-    project_id:number;
-    status:string;
+    service_id:number;
+    
 }
 
 export interface DeploymentRequest {
@@ -9,5 +9,6 @@ export interface DeploymentRequest {
 
 export interface DeploymentResponse extends DeploymentBase {
     id:number;
+    status?:string;
     created_at:string;
 }

@@ -1,7 +1,7 @@
 import jwt
 from datetime import datetime, timezone, timedelta
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Query, WebSocketException, status
 from fastapi.security import OAuth2PasswordBearer
 import os
 
@@ -55,4 +55,28 @@ def get_current_user(token= Depends(oauth2_scheme)):
         raise HTTPException(
             status_code= 401,
             detail= "Credenciais inválidas"
+        )
+    
+def get_current_user_ws(token):
+    try:
+        payload = jwt.decode(
+            token,
+            key=SECRET_KEY,
+            algorithms=ALGORITHM
+        )
+        user_id = payload.get('sub')
+        if user_id is None:
+            raise WebSocketException(
+                code= status.WS_1008_POLICY_VIOLATION
+            )
+        return int(user_id)
+    
+    except jwt.ExpiredSignatureError:
+        raise WebSocketException(
+            code= status.WS_1008_POLICY_VIOLATION
+            
+        )
+    except jwt.InvalidTokenError:
+        raise WebSocketException(
+            code= status.WS_1008_POLICY_VIOLATION  
         )

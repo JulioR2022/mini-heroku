@@ -1,10 +1,11 @@
-from fastapi import FastAPI, Depends, HTTPException,BackgroundTasks
+from contextlib import asynccontextmanager
+import asyncio
+from fastapi import FastAPI, Depends, HTTPException,BackgroundTasks, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-import docker, tempfile, shutil, git, os
-from database import engine, Base, get_db, local_session
+from database import engine, Base, get_db
 from models.deployment import Deployment
 from models.project import Project
 from models.user import User
@@ -12,14 +13,17 @@ from models.service import Service
 from schemas import schemas_project, schemas_service
 from schemas import schemas_user
 from schemas import schemas_deployment
-from auth import get_current_user, get_hash_password, create_access_token, verify_password
-from docker_service import deploy_container, remove_container
+from auth import get_current_user, get_hash_password, create_access_token, verify_password, get_current_user_ws
+from docker_service import deploy_container,deploy_database_container ,remove_container, stop_container
+from log_manager import manager
 
+@asynccontextmanager
+async def lifespan(app:FastAPI):
+    manager.loop = asyncio.get_running_loop()
+    Base.metadata.create_all(bind=engine)
+    yield
 
-# Cria as tabelas
-Base.metadata.create_all(bind=engine)
-
-app = FastAPI(title='mini heroku API')
+app = FastAPI(title='mini heroku API', lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,6 +37,7 @@ app.add_middleware(
 def read_root():
     return {'message': 'API Mini Heroku Funcionando'}
 
+# Rotas associadas ao usuario
 @app.get('/me', response_model=schemas_user.UserResponse)
 def get_user(user_id:int = Depends(get_current_user), db:Session = Depends(get_db)):
     user_ = db.query(User).filter(User.id == user_id).first()
@@ -139,6 +144,7 @@ def get_all_project_services(project_id:int,
     ).all()
     return services
 
+
 @app.get('/service/{service_id}', response_model=schemas_service.ServiceResponse)
 def get_service(service_id:int,
                 user_id: int = Depends(get_current_user),
@@ -231,6 +237,26 @@ def update_service(service_id:int,
     
     return service
 
+
+@app.post('/service/{service_id}/stop')
+def stop_service(service_id:int,
+                 user_id:int = Depends(get_current_user),
+                 db:Session = Depends(get_db)):
+    service = db.query(Service).join(Project).filter(
+        Service.id == service_id,
+        Project.user_id == user_id
+    ).first()
+    if not service:
+        raise HTTPException(status_code=404, detail="Serviço não encontrado")
+    
+    try:
+        message = stop_container(service.name)
+        service.status = 'stopped'
+        db.commit()
+        return message
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.delete('/service/{service_id}')
 def delete_service(service_id:int,
                    user_id:int = Depends(get_current_user),
@@ -246,9 +272,10 @@ def delete_service(service_id:int,
             detail='Service Not Found'
         )
     
+    remove_container(service.name)
     db.delete(service)
     db.commit()
-    
+
 @app.post('/service/{service_id}/deploy')
 def trigger_deploy(service_id:int,
                    background_tasks: BackgroundTasks,
@@ -263,26 +290,6 @@ def trigger_deploy(service_id:int,
     
     background_tasks.add_task(deploy_container, service.id)
 
-@app.post('/service/{service_id}/stop')
-def stop_service(service_id:int,
-                 user_id:int = Depends(get_current_user),
-                 db:Session = Depends(get_db)):
-    service = db.query(Service).join(Project).filter(
-        Service.id == service_id,
-        Project.user_id == user_id
-    ).first()
-    if not service:
-        raise HTTPException(status_code=404, detail="Serviço não encontrado")
-    
-    try:
-        message = remove_container(service.name)
-        service.status = 'stopped'
-        db.commit()
-        return message
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @app.get('/service/deployments', response_model=list[schemas_deployment.DeploymentResponse])
 def get_deployments(service_id:int,
                user_id:int = Depends(get_current_user),
@@ -295,3 +302,38 @@ def get_deployments(service_id:int,
         raise HTTPException(status_code=404, detail="Serviço não encontrado")
     
     return service.deployments
+
+@app.websocket('/ws/logs/{service_name}')
+async def get_logs(service_name:str,
+             websocket:WebSocket, 
+             db:Session = Depends(get_db)):
+    
+    await websocket.accept()
+    try:
+        token = await asyncio.wait_for(websocket.receive_text(), timeout=5.0)
+    except asyncio.TimeoutError:
+        await websocket.close(code = 4001)
+        return
+
+    user_id = get_current_user_ws(token)
+    if not user_id:
+        await websocket.close(code=4001)
+        return
+
+    service = db.query(Service).join(Project).filter(
+        Project.user_id == user_id,
+        Service.name == service_name
+    ).first()
+
+    if not service:
+        await websocket.close(code=4004)
+        return
+    
+    await manager.connect(service_name, websocket)
+    await manager.wait_disconnect(service_name, websocket)
+
+@app.post('/database')
+def post_database(db_name:str,
+                  db_password,
+                  user_id:int = Depends(get_current_user)):
+    return deploy_database_container(db_name, db_password)

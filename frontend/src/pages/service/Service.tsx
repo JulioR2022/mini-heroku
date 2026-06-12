@@ -6,7 +6,7 @@ import { Header } from '../../components/Header/Header';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../contexts/ToastContext';
-import { deleteService, getService, getServiceEnv, triggerDeploy, updateService } from '../../services/utils';
+import { deleteService, getService, getServiceEnv, triggerDeploy, updateService,streamLogs } from '../../services/utils';
 import { useState } from 'react';
 import type { EnvVar, ServiceResponse, ServiceUpdate } from '../../types/services';
 import axios, { isAxiosError } from 'axios';
@@ -27,7 +27,8 @@ export default function ServicePage() {
     const [editRepo, setEditRepo] = useState(false);
     const [editRootDir, setEditRootDir] = useState(false);
     const [editName, setEditName] = useState(false);
-
+    const [logs, setLogs] = useState<string[]>([]);
+    const [isDeploying, setIsDeploying] = useState(false);
 
     useEffect(() =>{
         fetchService();
@@ -183,15 +184,49 @@ export default function ServicePage() {
         }
     };
 
+    useEffect(() => {
+        if (!isDeploying || !service?.name) return;
+
+        const ws = streamLogs(service.name);
+
+        ws.onopen = () => {
+            const token = localStorage.getItem('token');
+            ws.send(token ?? '');
+            setLogs(prev => [...prev, "> Conexão estabelecida! Aguardando container..."]);
+        };
+
+        ws.onmessage = (event) => {
+            setLogs(prev => [...prev, event.data]);
+        };
+
+        ws.onclose = () => {
+            setLogs(prev => [...prev, "> Conexão encerrada pelo servidor."]);
+            setIsDeploying(false);
+        };
+        
+        ws.onerror = () => {
+            setLogs(prev => [...prev, "> Erro na conexão do terminal."]);
+            setIsDeploying(false);
+        };
+
+        return () => {
+            ws.close();
+        };
+    }, [isDeploying]);
+
     const handleDeploy = async() => {
         try {
+            setLogs(["> Iniciando deploy..."]);
             await triggerDeploy(Number(serviceId));
+            setIsDeploying(true);
+            showToast('Deploy iniciado com sucesso!', 'success');
         } catch (err:unknown) {
             if(isAxiosError(err)){
                 showToast(err?.response?.data.detail,'error');
             } else {
                 showToast('Erro Inesperado.','error');
             }
+            setIsDeploying(false);
         }
     };
 
@@ -430,11 +465,9 @@ export default function ServicePage() {
                                 </Button>
                             </div>
                             <div className={styles.terminal}>
-                                <div className={styles['log-line']}><span className={styles['log-time']}>14:02:10</span> Starting application...</div>
-                                <div className={styles['log-line']}><span className={styles['log-time']}>14:02:12</span> Connected to PostgreSQL database.</div>
-                                <div className={styles['log-line']}><span className={styles['log-time']}>14:02:13</span> Server listening on port 8000</div>
-                                <div className={`${styles['log-line']} ${styles['log-request']}`}><span className={styles['log-time']}>14:05:01</span> GET /health - 200 OK - 12ms</div>
-                                <div className={`${styles['log-line']} ${styles['log-request']}`}><span className={styles['log-time']}>14:10:22</span> POST /api/checkout - 201 Created - 145ms</div>
+                                {logs.map((log, index) => (
+                                    <div key={index} className={styles['log-line']}>{log}</div>
+                                ))}
                             </div>
                         </section>
 

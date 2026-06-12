@@ -52,3 +52,8 @@ export const updateService = async(serviceId:number,update:ServiceUpdate):Promis
 export const triggerDeploy = async(serviceId:number) =>{
     await api.post(`/service/${serviceId}/deploy`);
 };
+
+export const streamLogs = (serviceName:string):WebSocket => {
+    const ws = new WebSocket(`ws://localhost:8000/ws/logs/${serviceName}`);
+    return ws
+};
