@@ -3,17 +3,17 @@ import { type ProjectRequest, type ProjectResponse } from '../types/project';
 import type { ServiceResponse, ServiceRequest, EnvVar, ServiceUpdate } from '../types/services';
 
 export const get_all_user_projects = async(): Promise<ProjectResponse[]> => {
-    const response = await api.get('/user/projects');
+    const response = await api.get('/projects/user/projects');
     return response.data;
 };
 
 export const get_all_project_services = async(projectId:number): Promise<ServiceResponse[]> => {
-    const response = await api.get(`/project/${projectId}/services`);
+    const response = await api.get(`/projects/${projectId}/services`);
     return response.data;
 }
 
 export const getProject = async (projectId:number): Promise<ProjectResponse> =>{
-    const response = await api.get(`/project/${projectId}`);
+    const response = await api.get(`/projects/user/${projectId}`);
     return response.data;
 }
 

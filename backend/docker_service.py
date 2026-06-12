@@ -3,7 +3,7 @@ from database import local_session
 from models.deployment import Deployment
 from models.service import Service
 from log_manager import manager
-import threading
+from urllib.parse import urlparse
 
 def get_docker():
     return docker.from_env()
@@ -37,7 +37,7 @@ def remove_container(container_name:str):
         raise Exception(f"Erro ao remover o container: {str(e)}")
 
 def deploy_container(service_id:int):
-
+    ALLOWED_HOSTS = ['github.com', 'gitlab.com']
     def log(msg:str):
         manager.broadcast_sync(service.name, msg)
     
@@ -60,6 +60,10 @@ def deploy_container(service_id:int):
         client = get_docker()
         temp_dir = tempfile.mkdtemp()
 
+        host = urlparse(service.repo_url).hostname
+        if host not in ALLOWED_HOSTS:
+            raise Exception('Host não permitido.')
+        
         log('[BUILD] Clonando repositório ...')
         git.Repo.clone_from(service.repo_url, temp_dir)
 
@@ -99,6 +103,8 @@ def deploy_container(service_id:int):
         try:
             container = client.containers.run(
                 image_tag,
+                mem_limit= "512m",
+                nano_cpus=500_000_000,
                 detach=True,
                 name= service.name,
                 ports= {container_port: None},
@@ -179,7 +185,7 @@ def stop_container(container_name:str):
     try:
         container = client.containers.get(container_name)
         container.stop()
-    except docker.error.NotFound:
+    except docker.errors.NotFound:
         pass
 
 def get_container_logs(container_name):
