@@ -24,9 +24,7 @@ export default function ServicePage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [envError, setEnvError] = useState('');
-    const [editRepo, setEditRepo] = useState(false);
-    const [editRootDir, setEditRootDir] = useState(false);
-    const [editName, setEditName] = useState(false);
+    const [editMode, setEditMode] = useState<keyof ServiceUpdate | null>(null);
     const [logs, setLogs] = useState<string[]>([]);
     const [isDeploying, setIsDeploying] = useState(false);
 
@@ -71,61 +69,30 @@ export default function ServicePage() {
         }
     };
     
-    const handleEditRepo = async() => {
-        if(update?.repo_url?.trim() !== service?.repo_url?.trim()){
-            try {
-                const response = await updateService(Number(serviceId), update);
-                setService(response);
-                showToast('Repositório atualizado com sucesso!', 'success');
-            } catch(err: unknown) {
-                if (isAxiosError(err)) {
-                    showToast(err?.response?.data?.detail || 'Erro ao atualizar o repositório.', 'error');
-                } else {
-                    showToast('Erro desconhecido.', 'error');
-                }
-                return; 
-            }
-        }
-        setUpdate({});
-        setEditRepo(false);
-    };
+    const handleEdit = async (field: keyof ServiceUpdate) => {
+        const newVal = update[field] as string | undefined;
+        const original = service?.[field as keyof ServiceResponse] as string | undefined;
 
-    const handleEditRootDir = async() => {
-        if(update?.root_dir?.trim() !== service?.root_dir?.trim()){
-            try {
-                const response = await updateService(Number(serviceId), update);
-                setService(response);
-                showToast('Repositório atualizado com sucesso!', 'success');
-            } catch(err: unknown) {
-                if (isAxiosError(err)) {
-                    showToast(err?.response?.data?.detail || 'Erro ao atualizar o repositório.', 'error');
-                } else {
-                    showToast('Erro desconhecido.', 'error');
-                }
-                return; 
-            }
+        if (newVal?.trim() === original?.trim()) {
+            setUpdate({});
+            setEditMode(null);
+            return;
         }
-        setUpdate({});
-        setEditRootDir(false);
-    };
-
-    const handleEditName = async() => {
-        if(update?.name?.trim() !== service?.name?.trim()){
-            try {
-                const response = await updateService(Number(serviceId), update);
-                setService(response);
-                showToast('Repositório atualizado com sucesso!', 'success');
-            } catch(err: unknown) {
-                if (isAxiosError(err)) {
-                    showToast(err?.response?.data?.detail || 'Erro ao atualizar o repositório.', 'error');
-                } else {
-                    showToast('Erro desconhecido.', 'error');
-                }
-                return; 
+        
+        try {
+            const response = await updateService(Number(serviceId), { [field]: newVal });
+            setService(response);
+            showToast('Atualizado com sucesso!', 'success');
+        } catch (err: unknown) {
+            if (isAxiosError(err)) {
+                showToast(err?.response?.data?.detail || 'Erro ao atualizar.', 'error');
+            } else {
+                showToast('Erro desconhecido.', 'error');
             }
+        } finally {
+            setUpdate({});
+            setEditMode(null);
         }
-        setUpdate({});
-        setEditName(false);
     };
 
     const handleAddEnvVar = async () => {
@@ -236,7 +203,7 @@ export default function ServicePage() {
             <main className={styles['service-main']}>
                 <header className={styles['service-header']}>
                     <div className={styles['header-title']}>
-                        {editName ?(
+                    {editMode === 'name' ?(
                             <span className={styles['info-value']}>
                                 <Input
                                     value={update.name}
@@ -245,7 +212,7 @@ export default function ServicePage() {
                                     )}
                                 />
                                 <Button 
-                                    onClick={handleEditName}
+                                onClick={() => handleEdit('name')}
                                 >
                                     <Check/>
                                 </Button>
@@ -255,7 +222,7 @@ export default function ServicePage() {
                                         setUpdate({
                                             name:undefined
                                         });
-                                        setEditName(false);
+                                    setEditMode(null);
                                     }}
                                 >
                                     <X></X>
@@ -268,7 +235,7 @@ export default function ServicePage() {
                                     className={styles['edit-button']}
                                     onClick={() =>{
                                         setUpdate({name:service?.name});
-                                        setEditName(true);
+                                    setEditMode('name');
                                     }}
                                 >
                                     <PencilLine size={18} />
@@ -299,7 +266,7 @@ export default function ServicePage() {
                                 Detalhes do Serviço
                             </h2>
                             <div className={styles['info-list']}>
-                                {editRepo ?(
+                            {editMode === 'repo_url' ?(
                                     <span className={styles['info-value']}>
                                         <Input
                                             value={update.repo_url}
@@ -308,7 +275,7 @@ export default function ServicePage() {
                                             )}
                                         />
                                         <Button 
-                                        onClick={handleEditRepo}
+                                        onClick={() => handleEdit('repo_url')}
                                         >
                                             <Check/>
                                         </Button>
@@ -318,7 +285,7 @@ export default function ServicePage() {
                                                 setUpdate({
                                                     repo_url:undefined
                                                 });
-                                                setEditRepo(false);
+                                            setEditMode(null);
                                             }}
                                         >
                                             <X></X>
@@ -335,7 +302,7 @@ export default function ServicePage() {
                                                 className={styles['edit-button']}
                                                 onClick={() =>{
                                                     setUpdate({repo_url:service?.repo_url});
-                                                    setEditRepo(true);
+                                                setEditMode('repo_url');
                                                 }}
                                             >
                                                 <PencilLine size={18} />
@@ -343,7 +310,7 @@ export default function ServicePage() {
                                         </span>
                                     </div>
                                 )}
-                                {editRootDir 
+                            {editMode === 'root_dir' 
                                 ?(
                                     <span className={styles['info-value']}>
                                         <Input
@@ -353,7 +320,7 @@ export default function ServicePage() {
                                             )}
                                         />
                                         <Button 
-                                            onClick={handleEditRootDir}
+                                        onClick={() => handleEdit('root_dir')}
                                         >
                                             <Check/>
                                         </Button>
@@ -363,7 +330,7 @@ export default function ServicePage() {
                                                 setUpdate({
                                                     root_dir:undefined
                                                 });
-                                                setEditRootDir(false);
+                                            setEditMode(null);
                                             }}
                                         >
                                             <X></X>
@@ -380,7 +347,7 @@ export default function ServicePage() {
                                                 className={styles['edit-button']}
                                                 onClick={() =>{
                                                     setUpdate({root_dir:service?.root_dir});
-                                                    setEditRootDir(true);
+                                                setEditMode('root_dir');
                                                 }}
                                             >
                                                 <PencilLine size={18} />

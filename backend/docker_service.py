@@ -117,16 +117,17 @@ def deploy_container(service_id:int):
         ports_ = container.attrs['NetworkSettings']['Ports']
         if ports_ and container_port in ports_ and ports_[container_port]:
             service.port = int(ports_[container_port][0]['HostPort'])
-            log(f'[START] Container rodando.')
 
-        service.status = 'running'
-        deploy.status = 'success'
-        db.commit()
+        
 
         retries = 0
         while retries < 30:
             container.reload()
             if container.status == 'running':
+                service.status = 'running'
+                deploy.status = 'success'
+                db.commit()
+                log(f'[START] Container rodando.')
                 break
             time.sleep(2)
             retries += 1

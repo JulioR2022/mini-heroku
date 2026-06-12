@@ -1,4 +1,4 @@
-import {useState, type SubmitEvent, type FormEvent} from 'react'
+import {useState, type SubmitEvent} from 'react'
 import { type UserRequest } from '../../types/user'
 import { register } from '../../services/auth';
 import axios from 'axios';
