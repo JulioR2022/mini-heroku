@@ -21,6 +21,10 @@ export const createProject = async (project:ProjectRequest) => {
     await api.post('/projects',project);
 };
 
+export const deleteProject = async (projectId:number) => {
+    await api.delete(`/projects/${projectId}`);
+};
+
 export const createService = async (service: ServiceRequest) => {
     await api.post('/service',service);
 };
@@ -36,6 +40,9 @@ export const deleteService = async(serviceId:number) => {
 
 export const getServiceEnv = async(serviceId: number): Promise<EnvVar[]> => {
     const response = await api.get(`/service/${serviceId}/env`);
+    if (!response.data || typeof response.data !== 'object') {
+        return [];
+    }
     const envArray: EnvVar[] = Object.entries(response.data).map(
         ([key,value]) => ({
             key: String(key), 
@@ -49,11 +56,27 @@ export const updateService = async(serviceId:number,update:ServiceUpdate):Promis
     return response.data;
 };
 
-export const triggerDeploy = async(serviceId:number) =>{
+export const triggerDeploy = async(serviceId:number) => {
     await api.post(`/service/${serviceId}/deploy`);
 };
 
+export const restartService = async(serviceId:number) => {
+    await api.post(`/service/${serviceId}/restart`);
+};
+
+export const getUserPlan = async() => {
+    const response = await api.get('/user/plan');
+    return response.data;
+};
+
+export const upgradeAccount = async(accountType: string) => {
+    const response = await api.patch('/user/upgrade', { account_type: accountType });
+    return response.data;
+};
+
 export const streamLogs = (serviceName:string):WebSocket => {
-    const ws = new WebSocket(`ws://localhost:8000/ws/logs/${serviceName}`);
+    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
+    const wsUrl = apiUrl.replace(/^http/, 'ws');
+    const ws = new WebSocket(`${wsUrl}/ws/logs/${serviceName}`);
     return ws
 };

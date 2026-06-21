@@ -1,7 +1,8 @@
 import React, {useState, useEffect} from 'react'
 import { type EnvVar, type ServiceRequest, type ServiceResponse } from '../../types/services';
+import type { PlanInfo } from '../../types/user';
 import { useNavigate, useParams } from 'react-router-dom';
-import { createService, getProject, get_all_project_services } from '../../services/utils';
+import { createService, getProject, get_all_project_services, getUserPlan } from '../../services/utils';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '../../components/Button/Button';
 import { Input } from '../../components/Input/Input';
@@ -18,6 +19,7 @@ export default function ProjectPage(){
     const [services, setServices] = useState<ServiceResponse[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [planInfo, setPlanInfo] = useState<PlanInfo | null>(null);
     
     // Necessario para criar um service
     const [newServiceName, setNewServiceName] = useState('');
@@ -40,12 +42,14 @@ export default function ProjectPage(){
             return;
         }
         try{
-            const [servicesResponse, projectResponse] = await Promise.all([
+            const [servicesResponse, projectResponse, planResponse] = await Promise.all([
                 get_all_project_services(Number(projectId)),
-                getProject(Number(projectId))
+                getProject(Number(projectId)),
+                getUserPlan()
             ]);
             setServices(servicesResponse);
             setProjectName(projectResponse.name);
+            setPlanInfo(planResponse);
         } catch (err:unknown){
             if(axios.isAxiosError(err)){
                 showToast(err.response?.data?.detail || 'Erro ao buscar serviços.','error');
@@ -123,9 +127,9 @@ export default function ProjectPage(){
             setIsAdding(false);
         } catch (err: unknown) {
             if(axios.isAxiosError(err)){
-                showToast(err.response?.data?.detail,'error');
+                showToast(err.response?.data?.detail || 'Erro ao criar serviço.','error');
             } else {
-                showToast('Erro Inesperado','error');
+                showToast('Erro inesperado','error');
             }
         } finally {
             setLoading(false);
@@ -138,6 +142,10 @@ export default function ProjectPage(){
             fetchServices();
         }
     },[projectId]);
+
+    const isAtServiceLimit = planInfo
+        ? planInfo.usage.services >= planInfo.limits.max_services
+        : false;
     
     return (
         <div className='service-layout'>
@@ -146,43 +154,53 @@ export default function ProjectPage(){
             <header className="content-header">
                 <div className="header-info">
                     <h1>{projectName}</h1>
+                    {planInfo && (
+                        <span className="service-counter">
+                            {planInfo.usage.services} / {planInfo.limits.max_services} serviços
+                        </span>
+                    )}
                 </div>
-                <Button variant='custom' customColor='black' onClick={() => setIsModalOpen(true)}>
+                <Button 
+                    variant='custom' customColor='black' 
+                    onClick={() => setIsModalOpen(true)}
+                    disabled={isAtServiceLimit}
+                    title={isAtServiceLimit ? 'Limite de serviços atingido. Faça upgrade do plano.' : ''}
+                >
                     Novo Serviço +
                 </Button>
-                <Modal title='New Service' isOpen={isModalOpen} onClose={()=>{setIsModalOpen(false)}}>
+                <Modal title='Novo Serviço' isOpen={isModalOpen} onClose={()=>{setIsModalOpen(false)}}>
                     <form onSubmit={handleCreateService}>
                         <Input
-                            label='Name'
+                            label='Nome'
                             type='text'
-                            placeholder='Type in the service name'
+                            placeholder='Digite o nome do serviço'
                             value={newServiceName}
                             onChange={(e) => setNewServiceName(e.target.value)} required
                         />
                         <Input
-                            label='Repo'
+                            label='Repositório'
                             type='text'
-                            placeholder='Type in the repo url'
+                            placeholder='URL do repositório Git'
                             value={repoUrl}
                             onChange={(e) => setRepoUrl(e.target.value)} 
                         />
                         <Input
-                            label='Root Repo'
+                            label='Diretório raiz'
                             type='text'
-                            placeholder='Type in the the path to Dockerfile'
+                            placeholder='Caminho até o Dockerfile (ex: /backend)'
                             value={rootDir}
                             onChange={(e) => setRootDir(e.target.value)}
                         />
 
                         <div className="env-vars-section">
                             <div className="env-vars-header">
-                                <h3 className="env-vars-title">Enviroment Varibles</h3>
+                                <h3 className="env-vars-title">Variáveis de Ambiente</h3>
                                 <Button 
                                     type="button" 
                                     className="btn btn-success btn-sm" 
                                     onClick={() => setIsAdding(true)}
                                 >
-                                    + Add
+                                    + Adicionar
                                 </Button>
                             </div>
 
@@ -234,13 +252,13 @@ export default function ProjectPage(){
                                 {isAdding && (
                                     <div className='env-var-row draft-row'>
                                         <Input
-                                            placeholder="Key"
+                                            placeholder="Chave"
                                             value={draftEnvVar.key}
                                             onChange={(e) => setDraftEnvVar({ ...draftEnvVar, key: e.target.value })}
                                             autoFocus 
                                         />
                                         <Input
-                                            placeholder="Value"
+                                            placeholder="Valor"
                                             value={draftEnvVar.value}
                                             onChange={(e) => setDraftEnvVar({ ...draftEnvVar, value: e.target.value })}
                                              

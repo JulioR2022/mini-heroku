@@ -48,8 +48,5 @@ def main():
     print("Limpeza concluída! A PoC foi um sucesso.")
 
 
-
-
-
 if __name__ == '__main__':
     main()

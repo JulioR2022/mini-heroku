@@ -29,7 +29,7 @@ def remove_container(container_name:str):
             raise Exception(f'Erro ao remover container: {str(e)}')
         
         try:
-            volume_name = f'pgdta_{container_name}'
+            volume_name = f'pgdata_{container_name}'
             volume = client.volumes.get(volume_name)
             volume.remove(force=True)
         except docker.errors.NotFound:
@@ -69,7 +69,7 @@ def remove_dangling_image(client,
         return
     try:
         current_image = client.images.get(current_image_tag)
-        if current_image.id == current_image_tag:
+        if current_image.id == image_id:
             return
         client.images.remove(image=image_id, force=True)
         log(service_name, '[CLEANUP] Imagem antiga removida.')
@@ -129,7 +129,9 @@ def wait_until_running(container, service_name: str, retries: int = 30, interval
 def run_service_container(client, 
                           service, 
                           image_tag: str, 
-                          container_port: str):
+                          container_port: str,
+                          mem_limit: str = "512m",
+                          nano_cpus: int = 500_000_000):
     container_port_num = container_port.split('/')[0]
     environment_vars = {'PORT': container_port_num}
     if service.env_vars:
@@ -139,8 +141,8 @@ def run_service_container(client,
     try:
         container = client.containers.run(
             image_tag,
-            mem_limit="512m",
-            nano_cpus=500_000_000,
+            mem_limit=mem_limit,
+            nano_cpus=nano_cpus,
             detach=True,
             name=service.name,
             ports={container_port: None},
@@ -151,7 +153,7 @@ def run_service_container(client,
  
     return container
 
-def deploy_container(service_id:int):
+def deploy_container(service_id:int, mem_limit:str = "512m", nano_cpus:int = 500_000_000):
     db = local_session()
     temp_dir = None
     service = None
@@ -175,7 +177,7 @@ def deploy_container(service_id:int):
         image_tag = build_image(client, service, temp_dir)
         container_port = get_container_port(client, image_tag)
  
-        container = run_service_container(client, service, image_tag, container_port)
+        container = run_service_container(client, service, image_tag, container_port, mem_limit, nano_cpus)
  
         service.port = get_host_port(container, container_port)
  
@@ -242,15 +244,15 @@ def stop_container(container_name:str):
     try:
         container = client.containers.get(container_name)
         container.stop()
+        return {"message": f"Container '{container_name}' parado com sucesso.", "status": "stopped"}
     except docker.errors.NotFound:
-        pass
+        return {"message": f"Container '{container_name}' não encontrado.", "status": "not_found"}
 
-def get_container_logs(container_name):
+def get_container_logs(container_name:str):
     client = get_docker()
     try:
         container = client.containers.get(container_name)
-        line =container.logs(stream=False, follow=True, tail=100)
+        logs = container.logs(stream=False, follow=False, tail=100)
+        return logs.decode('utf-8')
     except docker.errors.NotFound:
         return {'code':404, 'detail':'Container não encontrado.'}
-    
-    

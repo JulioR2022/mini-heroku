@@ -62,3 +62,92 @@
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 1.25rem;
 }
+
+.plan-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.plan-info-row {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.plan-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 100px;
+}
+
+.plan-detail-label {
+    font-size: 0.75rem;
+    color: #64748b;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.plan-detail-value {
+    font-size: 1rem;
+    color: #0f172a;
+    font-weight: 600;
+}
+
+.plan-type {
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 999px;
+    display: inline-block;
+    width: fit-content;
+}
+
+.plan-type-free {
+    background-color: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+}
+
+.plan-type-premium {
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    color: #92400e;
+    border: 1px solid #f59e0b;
+}
+
+/* Barra de uso */
+.usage-bar {
+    width: 100%;
+    height: 6px;
+    background-color: #f1f5f9;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 4px;
+}
+
+.usage-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #6366f1);
+    border-radius: 3px;
+    transition: width 0.5s ease;
+}
+
+.plan-upgrade-section {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f1f5f9;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.loading-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #64748b;
+}

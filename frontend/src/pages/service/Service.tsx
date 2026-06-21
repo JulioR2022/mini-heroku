@@ -6,9 +6,10 @@ import { Header } from '../../components/Header/Header';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../contexts/ToastContext';
-import { deleteService, getService, getServiceEnv, triggerDeploy, updateService,streamLogs } from '../../services/utils';
+import { deleteService, getService, getServiceEnv, triggerDeploy, updateService, streamLogs, restartService, getUserPlan } from '../../services/utils';
 import { useState } from 'react';
 import type { EnvVar, ServiceResponse, ServiceUpdate } from '../../types/services';
+import type { PlanInfo } from '../../types/user';
 import axios, { isAxiosError } from 'axios';
 import Modal from '../../components/Modal/Modal';
 import { PencilLine, Check, X } from 'lucide-react';
@@ -27,6 +28,8 @@ export default function ServicePage() {
     const [editMode, setEditMode] = useState<keyof ServiceUpdate | null>(null);
     const [logs, setLogs] = useState<string[]>([]);
     const [isDeploying, setIsDeploying] = useState(false);
+    const [isRestarting, setIsRestarting] = useState(false);
+    const [planInfo, setPlanInfo] = useState<PlanInfo | null>(null);
 
     useEffect(() =>{
         fetchService();
@@ -34,19 +37,21 @@ export default function ServicePage() {
     
     const fetchService = async () => {
         try {
-            const [serviceResponse, envResponse] = await Promise.all([
+            const [serviceResponse, envResponse, planResponse] = await Promise.all([
                 getService(Number(serviceId)),
-                getServiceEnv(Number(serviceId))
+                getServiceEnv(Number(serviceId)),
+                getUserPlan()
             ]);
             setService(serviceResponse);
             setEnvVars(envResponse);
+            setPlanInfo(planResponse);
         } catch(err:unknown) {
             if(axios.isAxiosError(err)){
-                showToast(err?.response?.data.detail,'error');
+                showToast(err?.response?.data.detail || 'Erro ao carregar serviço.','error');
                 
             }
             else {
-                showToast('Unknown Error. Try again.', 'error');
+                showToast('Erro desconhecido. Tente novamente.', 'error');
             }
         }
     }
@@ -60,9 +65,9 @@ export default function ServicePage() {
             showToast(response,'success');
         } catch(err:unknown) {
             if(isAxiosError(err)){
-                showToast(err?.response?.data.detail,'error');
+                showToast(err?.response?.data.detail || 'Erro ao excluir serviço.','error');
             } else {
-                showToast('Unknown error.','error');
+                showToast('Erro desconhecido.','error');
             }         
         }   finally{
             setIsDeleting(false);
@@ -118,9 +123,9 @@ export default function ServicePage() {
             showToast('Variável adicionada com sucesso!', 'success');
         } catch(err:unknown) {
             if(isAxiosError(err)) {
-                showToast(err?.response?.data.detail,'error');
+                showToast(err?.response?.data.detail || 'Erro ao adicionar variável.','error');
             } else {
-                showToast('Erro Inesperado.','error');
+                showToast('Erro inesperado.','error');
             }
         }
     };
@@ -144,7 +149,7 @@ export default function ServicePage() {
             showToast('Variável removida com sucesso!', 'success');
         } catch(err:unknown) {
             if (isAxiosError(err)) {
-                showToast(err?.response?.data?.detail, 'error');
+                showToast(err?.response?.data?.detail || 'Erro ao remover variável.', 'error');
             } else {
                 showToast('Erro desconhecido.', 'error');
             }
@@ -169,6 +174,7 @@ export default function ServicePage() {
         ws.onclose = () => {
             setLogs(prev => [...prev, "> Conexão encerrada pelo servidor."]);
             setIsDeploying(false);
+            fetchService(); // Recarrega para atualizar o status
         };
         
         ws.onerror = () => {
@@ -189,12 +195,39 @@ export default function ServicePage() {
             showToast('Deploy iniciado com sucesso!', 'success');
         } catch (err:unknown) {
             if(isAxiosError(err)){
-                showToast(err?.response?.data.detail,'error');
+                showToast(err?.response?.data.detail || 'Erro ao iniciar deploy.','error');
             } else {
-                showToast('Erro Inesperado.','error');
+                showToast('Erro inesperado.','error');
             }
             setIsDeploying(false);
         }
+    };
+
+    const handleRestart = async() => {
+        setIsRestarting(true);
+        try {
+            setLogs(["> Reiniciando serviço..."]);
+            await restartService(Number(serviceId));
+            setIsDeploying(true);
+            showToast('Reinício iniciado!', 'success');
+        } catch (err:unknown) {
+            if(isAxiosError(err)){
+                showToast(err?.response?.data.detail || 'Erro ao reiniciar.','error');
+            } else {
+                showToast('Erro inesperado.','error');
+            }
+        } finally {
+            setIsRestarting(false);
+        }
+    };
+
+    const handleCopyLogs = () => {
+        const logText = logs.join('\n');
+        navigator.clipboard.writeText(logText).then(() => {
+            showToast('Logs copiados!', 'success');
+        }).catch(() => {
+            showToast('Erro ao copiar logs.', 'error');
+        });
     };
 
     return (
@@ -247,8 +280,10 @@ export default function ServicePage() {
                         <Button 
                             variant="custom" 
                             customColor="#475569"
+                            onClick={handleRestart}
+                            disabled={isRestarting}
                         >
-                            Reiniciar
+                            {isRestarting ? 'Reiniciando...' : 'Reiniciar'}
                         </Button>
                         <Button 
                             variant="primary"
@@ -339,7 +374,7 @@ export default function ServicePage() {
                                 ):(
                                     <div className={styles['info-item']}>
                                         <span className={styles['info-label']}>
-                                            Branch
+                                            Diretório Raiz
                                         </span>
                                         <span className={styles['info-value']}>
                                             {service?.root_dir}
@@ -366,12 +401,40 @@ export default function ServicePage() {
                                         {service?.port ? 
                                             <a href={`http://localhost:${service?.port}`} target="_blank" rel="noreferrer" className={styles['info-link']}>{`http://localhost:${service?.port}`}</a>
                                         
-                                        : <a> Waiting for Deploy</a>
+                                        : <span className={styles['info-value']}>Aguardando deploy</span>
                                         }
                                     
                                 </div>
                             </div>
                         </section>
+
+                        {planInfo && (
+                            <section className={styles.card}>
+                                <h2>Recursos do Plano</h2>
+                                <p className={styles['card-description']}>Recursos alocados para cada container com base no seu plano.</p>
+                                <div className={styles['resource-grid']}>
+                                    <div className={styles['resource-item']}>
+                                        <span className={styles['resource-label']}>CPU</span>
+                                        <span className={styles['resource-value']}>
+                                            {(planInfo.limits.nano_cpus / 1_000_000_000).toFixed(1)} vCPU
+                                        </span>
+                                    </div>
+                                    <div className={styles['resource-item']}>
+                                        <span className={styles['resource-label']}>Memória RAM</span>
+                                        <span className={styles['resource-value']}>
+                                            {planInfo.limits.mem_limit}
+                                        </span>
+                                    </div>
+                                    <div className={styles['resource-item']}>
+                                        <span className={styles['resource-label']}>Plano</span>
+                                        <span className={`${styles['resource-value']} ${styles[`plan-${planInfo.account_type}`]}`}>
+                                            {planInfo.limits.label}
+                                        </span>
+                                    </div>
+                                </div>
+                            </section>
+                        )}
+
                         <section className={styles.card}>
                             <h2>Variáveis de Ambiente</h2>
                             <p className={styles['card-description']}>Gerencie as chaves secretas e configurações da sua aplicação.</p>
@@ -427,7 +490,12 @@ export default function ServicePage() {
                         <section className={`${styles.card} ${styles['card-logs']}`}>
                             <div className={styles['logs-header']}>
                                 <h2>Logs da Aplicação</h2>
-                                <Button variant="custom" customColor="#e2e8f0" style={{ color: '#1e293b', fontSize: '0.8rem', padding: '4px 8px' }}>
+                                <Button 
+                                    variant="custom" 
+                                    customColor="#e2e8f0" 
+                                    style={{ color: '#1e293b', fontSize: '0.8rem', padding: '4px 8px' }}
+                                    onClick={handleCopyLogs}
+                                >
                                     Copiar
                                 </Button>
                             </div>
@@ -447,7 +515,7 @@ export default function ServicePage() {
                                 <Button variant="danger"
                                         onClick={() => setIsModalOpen(true)}
                                         disabled={isDeleting}>
-                                    {isDeleting ? 'Excluindo' : 'Excluir'}
+                                    {isDeleting ? 'Excluindo...' : 'Excluir'}
                                 </Button>
                             </div>
                         </section>

@@ -1,4 +1,4 @@
-import {useState, type SubmitEvent} from 'react'
+import React, {useState} from 'react'
 import { type UserRequest } from '../../types/user'
 import { register } from '../../services/auth';
 import axios from 'axios';
@@ -17,7 +17,7 @@ export default function RegisterPage(){
     const { showToast } = useToast();
     
 
-    const handleRegister = async(e: SubmitEvent<HTMLFormElement>) => {
+    const handleRegister = async(e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
         if (password !== confirmPassword) {

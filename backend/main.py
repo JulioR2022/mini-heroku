@@ -66,6 +66,6 @@ async def get_logs(service_name:str,
 
 @app.post('/database')
 def post_database(db_name:str,
-                  db_password,
+                  db_password:str,
                   user_id:int = Depends(get_current_user)):
     return deploy_database_container(db_name, db_password)

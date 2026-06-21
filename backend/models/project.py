@@ -14,4 +14,4 @@ class Project(Base):
         default= lambda: datetime.now(timezone.utc)
     )
     user = relationship('User', back_populates= 'projects')
-    services = relationship('Service', back_populates= 'project')
+    services = relationship('Service', back_populates= 'project', cascade='all, delete-orphan')

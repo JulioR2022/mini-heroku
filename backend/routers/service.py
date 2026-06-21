@@ -2,11 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from database import get_db
 from models.project import Project
+from models.user import User
 from models.service import Service
 from schemas import schemas_service, schemas_deployment
 from sqlalchemy.exc import IntegrityError
 from auth import get_current_user
 from docker_service import remove_container, stop_container, deploy_container
+from plan_limits import get_plan_limits
 
 router = APIRouter(
     prefix='/service',
@@ -37,16 +39,32 @@ def get_service_env(service_id:int,
     ).first()
     if not service:
         raise HTTPException(status_code=404, detail="Serviço não encontrado")
-    return service.env_vars
+    return service.env_vars or {}
 
 @router.post('', response_model= schemas_service.ServiceResponse)
 def create_service(service: schemas_service.ServiceRequest, 
                     user_id:int = Depends(get_current_user),
                     db:Session = Depends(get_db)):
     
-    project = db.query(Project).filter(Project.id == service.project_id, Project.user_id == user_id).first()
+    project = db.query(Project).filter(
+        Project.id == service.project_id, 
+        Project.user_id == user_id
+    ).first()
     if not project:
         raise HTTPException(status_code=404, detail="Projeto não encontrado")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    limits = get_plan_limits(user.account_type)
+    service_count = db.query(Service).join(Project).filter(
+        Project.user_id == user_id
+    ).count()
+
+    if service_count >= limits["max_services"]:
+        raise HTTPException(
+            status_code=403,
+            detail=f'Limite de serviços atingido ({limits["max_services"]}). '
+                   f'Faça upgrade do seu plano para criar mais serviços.'
+        )
 
     db_service = db.query(Service).filter(Service.name == service.name).first()
 
@@ -71,9 +89,8 @@ def create_service(service: schemas_service.ServiceRequest,
         db.rollback()
         raise HTTPException(
             status_code= 400,
-            detail= 'Erro de integridade: Este nome de serviço já está em uso.'
+            detail= 'Erro de integridade!'
         )
-    
     return new_service
 
 @router.patch('/{service_id}', response_model = schemas_service.ServiceResponse)
@@ -139,7 +156,7 @@ def delete_service(service_id:int,
     if not service:
         raise HTTPException(
             status_code=404,
-            detail='Service Not Found'
+            detail='Serviço não encontrado'
         )
     
     remove_container(service.name)
@@ -158,9 +175,47 @@ def trigger_deploy(service_id:int,
     ).first()
     if not service:
         raise HTTPException(status_code=404, detail="Serviço não encontrado")
+        
+    user = db.query(User).filter(User.id == user_id).first()
+    limits = get_plan_limits(user.account_type)
     
-    background_tasks.add_task(deploy_container, service.id)
+    background_tasks.add_task(
+        deploy_container, 
+        service.id,
+        mem_limit=limits["mem_limit"],
+        nano_cpus=limits["nano_cpus"]
+    )
     return {"message": "Deploy iniciado em background."}
+
+@router.post('/{service_id}/restart')
+def restart_service(service_id:int,
+                    background_tasks: BackgroundTasks,
+                    user_id:int = Depends(get_current_user),
+                    db:Session = Depends(get_db)):
+    """
+    Reinicia um serviço: para o container atual e faz um novo deploy.
+    """
+    service = db.query(Service).join(Project).filter(
+        Service.id == service_id,
+        Project.user_id == user_id
+    ).first()
+    if not service:
+        raise HTTPException(status_code=404, detail="Serviço não encontrado")
+    
+    # Parar o container atual
+    stop_container(service.name)
+    
+    # Re-deployar com os limites do plano
+    user = db.query(User).filter(User.id == user_id).first()
+    limits = get_plan_limits(user.account_type)
+    
+    background_tasks.add_task(
+        deploy_container,
+        service.id,
+        mem_limit=limits["mem_limit"],
+        nano_cpus=limits["nano_cpus"]
+    )
+    return {"message": "Reinício iniciado em background."}
 
 @router.get('/{service_id}/deployments', response_model=list[schemas_deployment.DeploymentResponse])
 def get_deployments(service_id:int,
